@@ -11,7 +11,7 @@ import Foundation
     import Dispatch
 #endif
 
-struct PromiseCheckError: Error { }
+struct PromiseCheckError: Error {}
 
 public enum Promises {
     /// Wait for all the promises you give it to fulfill, and once they have, fulfill itself
@@ -20,7 +20,7 @@ public enum Promises {
         return Promise<[T]>(work: { fulfill, reject in
             guard !promises.isEmpty else { fulfill([]); return }
             for promise in promises {
-                promise.then({ value in
+                promise.then({ _ in
                     if !promises.contains(where: { $0.isRejected || $0.isPending }) {
                         fulfill(promises.compactMap({ $0.value }))
                     }
@@ -34,7 +34,7 @@ public enum Promises {
     /// Resolves itself after some delay.
     /// - parameter delay: In seconds
     public static func delay(_ delay: TimeInterval) -> Promise<()> {
-        return Promise<()>(work: { fulfill, reject in
+        return Promise<()>(work: { fulfill, _ in
             DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: {
                 fulfill(())
             })
@@ -43,9 +43,9 @@ public enum Promises {
 
     /// This promise will be rejected after a delay.
     public static func timeout<T>(_ timeout: TimeInterval) -> Promise<T> {
-        return Promise<T>(work: { fulfill, reject in
+        return Promise<T>(work: { _, reject in
             delay(timeout).then({ _ in
-                reject(NSError(domain: "com.khanlou.Promise", code: -1111, userInfo: [ NSLocalizedDescriptionKey: "Timed out" ]))
+                reject(NSError(domain: "com.khanlou.Promise", code: -1111, userInfo: [NSLocalizedDescriptionKey: "Timed out"]))
             })
         })
     }
@@ -66,9 +66,9 @@ public enum Promises {
             return generate()
         }
         return Promise<T>(work: { fulfill, reject in
-            generate().recover({ error in
-                return self.delay(delay).then({
-                    return retry(count: count-1, delay: delay, generate: generate)
+            generate().recover({ _ in
+                self.delay(delay).then({
+                    retry(count: count - 1, delay: delay, generate: generate)
                 })
             }).then(fulfill).catch(reject)
         })
@@ -98,7 +98,7 @@ public enum Promises {
         })
     }
 
-    // The following zip functions have been created with the 
+    // The following zip functions have been created with the
     // "Zip Functions Generator" playground page. If you need variants with
     // more parameters, use it to generate them.
 
@@ -108,7 +108,7 @@ public enum Promises {
         return Promise<(T1, T2, T3)>(work: { (fulfill: @escaping ((T1, T2, T3)) -> Void, reject: @escaping (Error) -> Void) in
             let zipped: Promise<(T1, T2)> = zip(p1, p2)
 
-            func resolver() -> Void {
+            func resolver() {
                 if let zippedValue = zipped.value, let lastValue = last.value {
                     fulfill((zippedValue.0, zippedValue.1, lastValue))
                 }
@@ -124,7 +124,7 @@ public enum Promises {
         return Promise<(T1, T2, T3, T4)>(work: { (fulfill: @escaping ((T1, T2, T3, T4)) -> Void, reject: @escaping (Error) -> Void) in
             let zipped: Promise<(T1, T2, T3)> = zip(p1, p2, p3)
 
-            func resolver() -> Void {
+            func resolver() {
                 if let zippedValue = zipped.value, let lastValue = last.value {
                     fulfill((zippedValue.0, zippedValue.1, zippedValue.2, lastValue))
                 }
@@ -154,7 +154,7 @@ extension Promise {
             self.then(fulfill).catch({ error in
                 do {
                     try recovery(error).then(fulfill, reject)
-                } catch (let error) {
+                } catch {
                     reject(error)
                 }
             })
@@ -162,16 +162,16 @@ extension Promise {
     }
 
     public func ensure(_ check: @escaping (Value) -> Bool) -> Promise<Value> {
-        return self.then({ (value: Value) -> Value in
+        return then({ (value: Value) -> Value in
             guard check(value) else {
                 throw PromiseCheckError()
             }
             return value
         })
     }
-    
-    public func `catch`<E: Error>(type errorType: E.Type, _ onRejected: @escaping (E) -> Void) -> Promise<Value> {
-        return self.catch({ error in
+
+    public func `catch`<E: Error>(type _: E.Type, _ onRejected: @escaping (E) -> Void) -> Promise<Value> {
+        return `catch`({ error in
             if let castedError = error as? E {
                 onRejected(castedError)
             }
