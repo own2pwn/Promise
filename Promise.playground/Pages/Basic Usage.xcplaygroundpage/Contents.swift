@@ -2,20 +2,14 @@ import Foundation
 import PlaygroundSupport
 import Promise
 
-func promisedString(_ str: String) -> Promise<String> {
-    return Promise<String>(work: { fulfill, _ in
-        print("sleeping…")
-        sleep(1)
-        print("done sleeping")
-        fulfill(str)
-    })
+let val = Promise<Int>()
+
+val.then { v in
+    print("got: \(v)")
 }
 
-promisedString("simple example").then({ result in
-    print("Got result: ", result)
-})
-
-print("after creating promise")
+val.fulfill(1)
+val.fulfill(2)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // Run the playground so the `dispatch_async()`s work

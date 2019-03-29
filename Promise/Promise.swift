@@ -196,7 +196,7 @@ public final class Promise<Value> {
     }
 
     public func fulfill(_ value: Value) {
-        updateState(.fulfilled(value: value))
+        updateState2(.fulfilled(value: value))
     }
 
     public var isPending: Bool {
@@ -231,6 +231,14 @@ public final class Promise<Value> {
         }
     }
 
+    private func updateState2(_ newState: State<Value>) {
+        lockQueue.async {
+            guard case let .pending(callbacks) = self.state else { return }
+            //self.state = newState
+            self.fireIfCompleted(callbacks: callbacks)
+        }
+    }
+
     private func addCallbacks(on queue: ExecutionContext = DispatchQueue.main, onFulfilled: @escaping (Value) -> Void, onRejected: @escaping (Error) -> Void) {
         let callback = Callback(onFulfilled: onFulfilled, onRejected: onRejected, executionContext: queue)
         lockQueue.async(flags: .barrier) {
@@ -256,15 +264,15 @@ public final class Promise<Value> {
             case let .fulfilled(value):
                 var mutableCallbacks = callbacks
                 let firstCallback = mutableCallbacks.removeFirst()
-                firstCallback.callFulfill(value, completion: {
+                firstCallback.callFulfill(value) {
                     self.fireIfCompleted(callbacks: mutableCallbacks)
-                })
+                }
             case let .rejected(error):
                 var mutableCallbacks = callbacks
                 let firstCallback = mutableCallbacks.removeFirst()
-                firstCallback.callReject(error, completion: {
+                firstCallback.callReject(error) {
                     self.fireIfCompleted(callbacks: mutableCallbacks)
-                })
+                }
             }
         }
     }
